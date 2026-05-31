@@ -23,6 +23,14 @@ const File = sequelize.define('File', {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  starred: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  trashed: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
 }, {
   timestamps: true,
 });

@@ -1,7 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import FileGrid from './components/FileGrid';
+import FilePreview from './components/FilePreview';
 import { getFiles, uploadFile } from './api';
+
+const viewTitles = {
+  'my-drive': 'My Drive',
+  recent: 'Recent',
+  starred: 'Starred',
+  trash: 'Trash',
+};
 
 export default function App() {
   /* ── State ── */
@@ -9,8 +17,12 @@ export default function App() {
   const [filteredFiles, setFilteredFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [uploadProgress, setUploadProgress] = useState(null); // 0-100 or null
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [currentView, setCurrentView] = useState('my-drive');
+  const [previewFile, setPreviewFile] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
 
   /* ── Toast system ── */
   const showToast = useCallback((message, type = 'success') => {
@@ -31,14 +43,15 @@ export default function App() {
   const fetchFiles = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getFiles();
+      const viewParam = currentView === 'my-drive' ? 'all' : currentView;
+      const res = await getFiles(viewParam);
       setFiles(res.data);
     } catch {
       showToast('Failed to load files', 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, currentView]);
 
   useEffect(() => {
     fetchFiles();
@@ -53,6 +66,17 @@ export default function App() {
       setFilteredFiles(files.filter((f) => f.originalname.toLowerCase().includes(q)));
     }
   }, [searchQuery, files]);
+
+  /* ── Close profile dropdown on outside click ── */
+  useEffect(() => {
+    function handleClick(e) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    }
+    if (profileOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [profileOpen]);
 
   /* ── Upload handler ── */
   const handleUpload = async (file) => {
@@ -74,16 +98,21 @@ export default function App() {
     }
   };
 
-  /* ── Delete handler ── */
-  const handleDelete = (id) => {
-    setFiles((prev) => prev.filter((f) => f.id !== id));
+  /* ── View change handler ── */
+  const handleViewChange = (view) => {
+    setCurrentView(view);
+    setSearchQuery('');
   };
 
   /* ── Render ── */
   return (
     <div className="flex h-screen bg-white overflow-hidden">
       {/* Sidebar */}
-      <Sidebar onUpload={handleUpload} />
+      <Sidebar
+        onUpload={handleUpload}
+        currentView={currentView}
+        onViewChange={handleViewChange}
+      />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -95,7 +124,6 @@ export default function App() {
           {/* Search bar */}
           <div className="flex-1 max-w-2xl mx-auto">
             <div className="relative">
-              {/* Search icon */}
               <svg
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-drive-text-secondary"
                 width="20"
@@ -119,7 +147,6 @@ export default function App() {
                            transition-all duration-200"
               />
 
-              {/* Clear button */}
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
@@ -136,12 +163,58 @@ export default function App() {
             </div>
           </div>
 
-          {/* Account avatar placeholder */}
-          <div
-            className="w-9 h-9 rounded-full bg-drive-blue flex items-center justify-center
-                       text-white text-sm font-medium shrink-0 cursor-pointer"
-          >
-            U
+          {/* Profile avatar with dropdown */}
+          <div className="relative" ref={profileRef}>
+            <button
+              id="profile-btn"
+              onClick={() => setProfileOpen(!profileOpen)}
+              className="w-9 h-9 rounded-full bg-drive-blue flex items-center justify-center
+                         text-white text-sm font-medium shrink-0 cursor-pointer
+                         hover:shadow-md transition-shadow ring-2 ring-transparent
+                         hover:ring-drive-blue/30"
+            >
+              U
+            </button>
+
+            {profileOpen && (
+              <div className="absolute right-0 top-12 w-72 bg-white rounded-2xl shadow-2xl
+                              border border-drive-border z-50 overflow-hidden">
+                {/* Profile header */}
+                <div className="px-5 pt-5 pb-4 text-center border-b border-drive-border">
+                  <div className="w-16 h-16 rounded-full bg-drive-blue flex items-center justify-center
+                                  text-white text-2xl font-medium mx-auto mb-3">
+                    U
+                  </div>
+                  <p className="text-sm font-medium text-drive-text">User</p>
+                  <p className="text-xs text-drive-text-secondary mt-0.5">user@example.com</p>
+                </div>
+
+                {/* Menu items */}
+                <div className="py-2">
+                  <button className="flex items-center gap-3 w-full px-5 py-2.5 text-sm text-drive-text
+                                     hover:bg-drive-card-hover transition-colors">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#5f6368">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
+                    </svg>
+                    Manage your Account
+                  </button>
+                  <button className="flex items-center gap-3 w-full px-5 py-2.5 text-sm text-drive-text
+                                     hover:bg-drive-card-hover transition-colors">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#5f6368">
+                      <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0014 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z" />
+                    </svg>
+                    Settings
+                  </button>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-3 border-t border-drive-border">
+                  <p className="text-[11px] text-drive-text-secondary text-center">
+                    Privacy Policy · Terms of Service
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
@@ -170,7 +243,9 @@ export default function App() {
         <main className="flex-1 overflow-y-auto px-6 py-5">
           <div className="flex items-center justify-between mb-5">
             <h1 id="page-heading" className="text-lg font-medium text-drive-text">
-              {searchQuery ? `Search results for "${searchQuery}"` : 'My Drive'}
+              {searchQuery
+                ? `Search results for "${searchQuery}"`
+                : viewTitles[currentView]}
             </h1>
             {!loading && files.length > 0 && (
               <span className="text-xs text-drive-text-secondary">
@@ -182,11 +257,21 @@ export default function App() {
           <FileGrid
             files={filteredFiles}
             loading={loading}
-            onDelete={handleDelete}
+            onFileChanged={fetchFiles}
             showToast={showToast}
+            currentView={currentView}
+            onPreview={(file) => setPreviewFile(file)}
           />
         </main>
       </div>
+
+      {/* File preview modal */}
+      {previewFile && (
+        <FilePreview
+          file={previewFile}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
 
       {/* Toast notifications */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center">

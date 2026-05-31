@@ -2,6 +2,7 @@ import UploadButton from './UploadButton';
 
 const navItems = [
   {
+    key: 'my-drive',
     label: 'My Drive',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -9,9 +10,9 @@ const navItems = [
         <path d="M12 6l-4 7h8z" opacity="0.5" />
       </svg>
     ),
-    active: true,
   },
   {
+    key: 'recent',
     label: 'Recent',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -20,6 +21,7 @@ const navItems = [
     ),
   },
   {
+    key: 'starred',
     label: 'Starred',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -28,6 +30,7 @@ const navItems = [
     ),
   },
   {
+    key: 'trash',
     label: 'Trash',
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -37,7 +40,7 @@ const navItems = [
   },
 ];
 
-export default function Sidebar({ onUpload }) {
+export default function Sidebar({ onUpload, currentView, onViewChange }) {
   return (
     <aside
       id="sidebar"
@@ -66,23 +69,27 @@ export default function Sidebar({ onUpload }) {
 
       {/* Navigation */}
       <nav className="flex-1">
-        {navItems.map((item) => (
-          <button
-            key={item.label}
-            id={`nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
-            className={`nav-item flex items-center gap-4 w-full px-5 py-2 rounded-full
-                        text-sm font-medium cursor-pointer mb-0.5
-                        ${item.active
-                          ? 'active bg-[#e8f0fe] text-drive-blue'
-                          : 'text-drive-text-secondary hover:bg-[#e8eaed]'
-                        }`}
-          >
-            <span className={item.active ? 'text-drive-blue' : 'text-drive-text-secondary'}>
-              {item.icon}
-            </span>
-            {item.label}
-          </button>
-        ))}
+        {navItems.map((item) => {
+          const isActive = currentView === item.key;
+          return (
+            <button
+              key={item.key}
+              id={`nav-${item.key}`}
+              onClick={() => onViewChange(item.key)}
+              className={`nav-item flex items-center gap-4 w-full px-5 py-2 rounded-full
+                          text-sm font-medium cursor-pointer mb-0.5
+                          ${isActive
+                            ? 'active bg-[#e8f0fe] text-drive-blue'
+                            : 'text-drive-text-secondary hover:bg-[#e8eaed]'
+                          }`}
+            >
+              <span className={isActive ? 'text-drive-blue' : 'text-drive-text-secondary'}>
+                {item.icon}
+              </span>
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Storage indicator */}
